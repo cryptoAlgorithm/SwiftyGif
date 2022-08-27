@@ -18,7 +18,10 @@ public typealias PlatformImageView = UIImageView
 #endif
 
 open class SwiftyGifManager {
-    
+    enum SwiftyGifManagerError: Error {
+        case timerInitError
+    }
+
     // A convenient default manager if we only have one gif to display here and there
     public static var defaultManager = SwiftyGifManager(memoryLimit: 50)
     
@@ -47,7 +50,7 @@ open class SwiftyGifManager {
         stopTimer()
     }
     
-    public func startTimerIfNeeded() {
+    public func startTimerIfNeeded() throws {
         guard timer == nil else {
             return
         }
@@ -64,7 +67,9 @@ open class SwiftyGifManager {
             return kCVReturnSuccess
         }
 
-        CVDisplayLinkCreateWithActiveCGDisplays(&timer)
+        guard CVDisplayLinkCreateWithActiveCGDisplays(&timer) == kCVReturnSuccess else {
+            throw SwiftyGifManagerError.timerInitError
+        }
         CVDisplayLinkSetOutputCallback(timer!, displayLinkOutputCallback, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))
         CVDisplayLinkStart(timer!)
         
@@ -95,13 +100,13 @@ open class SwiftyGifManager {
     /// - Parameter imageView: The image view we're adding to this manager
     open func addImageView(_ imageView: PlatformImageView) -> Bool {
         if containsImageView(imageView) {
-            startTimerIfNeeded()
+            try? startTimerIfNeeded()
             return false
         }
         
         updateCacheSize(for: imageView, add: true)
         displayViews.append(imageView)
-        startTimerIfNeeded()
+        guard (try? startTimerIfNeeded()) != nil else { return false }
         
         return true
     }
